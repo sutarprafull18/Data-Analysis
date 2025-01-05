@@ -22,119 +22,44 @@ def create_custom_styles():
     """Create custom styles for the PDF report"""
     styles = getSampleStyleSheet()
     
-    # Title style
-    styles.add(ParagraphStyle(
-        name='CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=24,
-        spaceAfter=30,
-        alignment=TA_CENTER
-    ))
+    # Dictionary of style definitions
+    custom_styles = {
+        'CustomTitle': {
+            'parent': styles['Heading1'],
+            'fontSize': 24,
+            'spaceAfter': 30,
+            'alignment': TA_CENTER
+        },
+        'ChapterTitle': {
+            'parent': styles['Heading1'],
+            'fontSize': 20,
+            'spaceAfter': 25,
+            'spaceBefore': 30
+        },
+        'SectionTitle': {
+            'parent': styles['Heading2'],
+            'fontSize': 16,
+            'spaceAfter': 20,
+            'spaceBefore': 20
+        },
+        'CustomBody': {  # Renamed from BodyText to avoid conflict
+            'parent': styles['Normal'],
+            'fontSize': 12,
+            'leading': 16,
+            'alignment': TA_JUSTIFY
+        }
+    }
     
-    # Chapter style
-    styles.add(ParagraphStyle(
-        name='ChapterTitle',
-        parent=styles['Heading1'],
-        fontSize=20,
-        spaceAfter=25,
-        spaceBefore=30
-    ))
-    
-    # Section style
-    styles.add(ParagraphStyle(
-        name='SectionTitle',
-        parent=styles['Heading2'],
-        fontSize=16,
-        spaceAfter=20,
-        spaceBefore=20
-    ))
-    
-    # Body text style
-    styles.add(ParagraphStyle(
-        name='BodyText',
-        parent=styles['Normal'],
-        fontSize=12,
-        leading=16,
-        alignment=TA_JUSTIFY
-    ))
+    # Add styles if they don't exist
+    for style_name, style_props in custom_styles.items():
+        if style_name not in styles:
+            styles.add(ParagraphStyle(
+                name=style_name,
+                parent=style_props['parent'],
+                **{k: v for k, v in style_props.items() if k != 'parent'}
+            ))
     
     return styles
-
-def generate_advanced_visualizations(df, target_column):
-    """Generate comprehensive visualizations for the report"""
-    plots = {}
-    
-    # Distribution plot
-    plt.figure(figsize=(10, 6))
-    if df[target_column].dtype in ['int64', 'float64']:
-        sns.histplot(data=df, x=target_column, kde=True)
-        plt.title(f'Distribution of {target_column}')
-    else:
-        sns.countplot(data=df, x=target_column)
-        plt.xticks(rotation=45)
-        plt.title(f'Frequency Distribution of {target_column}')
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-    plt.close()
-    plots['distribution'] = buf
-    
-    # Correlation heatmap
-    numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
-    if len(numeric_cols) > 1:
-        plt.figure(figsize=(12, 8))
-        sns.heatmap(df[numeric_cols].corr(), annot=True, cmap='coolwarm', fmt='.2f')
-        plt.title('Correlation Heatmap')
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-        plt.close()
-        plots['correlation'] = buf
-        
-        # Pairplot for numerical variables
-        if len(numeric_cols) <= 5:  # Limit to prevent overcrowding
-            plt.figure(figsize=(15, 15))
-            sns.pairplot(df[numeric_cols])
-            plt.tight_layout()
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-            plt.close()
-            plots['pairplot'] = buf
-    
-    # Box plots for outlier detection
-    if df[target_column].dtype in ['int64', 'float64']:
-        plt.figure(figsize=(10, 6))
-        sns.boxplot(y=df[target_column])
-        plt.title(f'Box Plot of {target_column}')
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-        plt.close()
-        plots['boxplot'] = buf
-    
-    return plots
-
-def perform_statistical_analysis(df, target_column):
-    """Perform comprehensive statistical analysis"""
-    analysis_results = {}
-    
-    # Basic statistics
-    analysis_results['basic_stats'] = df[target_column].describe()
-    
-    if df[target_column].dtype in ['int64', 'float64']:
-        # Normality test
-        stat, p_value = stats.normaltest(df[target_column].dropna())
-        analysis_results['normality_test'] = {
-            'statistic': stat,
-            'p_value': p_value
-        }
-        
-        # Skewness and Kurtosis
-        analysis_results['skewness'] = stats.skew(df[target_column].dropna())
-        analysis_results['kurtosis'] = stats.kurtosis(df[target_column].dropna())
-        
-    # Missing values analysis
-    analysis_results['missing_values'] = df[target_column].isnull().sum()
-    analysis_results['missing_percentage'] = (df[target_column].isnull().sum() / len(df)) * 100
-    
-    return analysis_results
 
 def create_pdf_report(df, target_column, report_info, plots, analysis_results):
     """Generate detailed PDF report"""
@@ -148,51 +73,65 @@ def create_pdf_report(df, target_column, report_info, plots, analysis_results):
     # Title Page
     story.append(Paragraph(report_info['report_title'], styles['CustomTitle']))
     story.append(Spacer(1, 30))
-    story.append(Paragraph(f"Prepared By: {report_info['prepared_by']}", styles['BodyText']))
-    story.append(Paragraph(f"Prepared For: {report_info['prepared_for']}", styles['BodyText']))
-    story.append(Paragraph(f"Date: {datetime.now().strftime('%Y-%m-%d')}", styles['BodyText']))
-    story.append(Paragraph(f"Version: {report_info['version']}", styles['BodyText']))
+    story.append(Paragraph(f"Prepared By: {report_info['prepared_by']}", styles['CustomBody']))
+    story.append(Paragraph(f"Prepared For: {report_info['prepared_for']}", styles['CustomBody']))
+    story.append(Paragraph(f"Date: {datetime.now().strftime('%Y-%m-%d')}", styles['CustomBody']))
+    story.append(Paragraph(f"Version: {report_info['version']}", styles['CustomBody']))
     story.append(PageBreak())
     
-    # Table of Contents (placeholder - would need more complex logic for actual TOC)
+    # Table of Contents
     story.append(Paragraph("Table of Contents", styles['ChapterTitle']))
-    # Add TOC items here
+    toc_items = [
+        "1. Executive Summary",
+        "2. Introduction",
+        "3. Methodology",
+        "4. Data Overview",
+        "5. Statistical Analysis",
+        "6. Findings and Insights",
+        "7. Recommendations",
+        "8. Limitations and Assumptions",
+        "9. Appendix"
+    ]
+    for item in toc_items:
+        story.append(Paragraph(item, styles['CustomBody']))
     story.append(PageBreak())
     
     # Executive Summary
-    story.append(Paragraph("Executive Summary", styles['ChapterTitle']))
-    story.append(Paragraph(report_info['purpose'], styles['BodyText']))
-    story.append(Paragraph("Key Findings:", styles['SectionTitle']))
-    # Add key findings based on analysis
+    story.append(Paragraph("1. Executive Summary", styles['ChapterTitle']))
+    story.append(Paragraph(report_info['purpose'], styles['CustomBody']))
     story.append(PageBreak())
     
     # Introduction
-    story.append(Paragraph("1. Introduction", styles['ChapterTitle']))
-    story.append(Paragraph("1.1 Objective", styles['SectionTitle']))
-    story.append(Paragraph(report_info['purpose'], styles['BodyText']))
-    story.append(Paragraph("1.2 Scope", styles['SectionTitle']))
-    story.append(Paragraph("This analysis covers the following aspects:", styles['BodyText']))
-    story.append(PageBreak())
+    story.append(Paragraph("2. Introduction", styles['ChapterTitle']))
+    story.append(Paragraph("2.1 Objective", styles['SectionTitle']))
+    story.append(Paragraph(report_info['purpose'], styles['CustomBody']))
     
-    # Methodology
-    story.append(Paragraph("2. Methodology", styles['ChapterTitle']))
-    story.append(Paragraph("2.1 Data Collection", styles['SectionTitle']))
-    story.append(Paragraph("2.2 Data Preprocessing", styles['SectionTitle']))
-    story.append(Paragraph("2.3 Analysis Techniques", styles['SectionTitle']))
+    # Add dataset overview
+    story.append(Paragraph("2.2 Dataset Overview", styles['SectionTitle']))
+    overview_text = f"""
+    This analysis examines a dataset containing {len(df)} records with {len(df.columns)} features.
+    The primary target variable for analysis is '{target_column}'.
+    The dataset includes {len(df.select_dtypes(include=['int64', 'float64']).columns)} numerical and
+    {len(df.select_dtypes(include=['object']).columns)} categorical variables.
+    """
+    story.append(Paragraph(overview_text, styles['CustomBody']))
     story.append(PageBreak())
     
     # Data Overview
     story.append(Paragraph("3. Data Overview", styles['ChapterTitle']))
+    
+    # Create data summary table
     data_info = [
-        ["Dataset Properties", "Value"],
+        ["Metric", "Value"],
         ["Number of Records", str(len(df))],
         ["Number of Features", str(len(df.columns))],
-        ["Target Variable", target_column],
         ["Missing Values", str(df.isnull().sum().sum())],
-        ["Time Period", "N/A"],  # Would need to be determined from data
+        ["Numeric Features", str(len(df.select_dtypes(include=['int64', 'float64']).columns))],
+        ["Categorical Features", str(len(df.select_dtypes(include=['object']).columns))]
     ]
-    t = Table(data_info, colWidths=[4*inch, 2*inch])
-    t.setStyle(TableStyle([
+    
+    # Add the table with styling
+    table_style = TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -201,48 +140,38 @@ def create_pdf_report(df, target_column, report_info, plots, analysis_results):
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    story.append(t)
-    story.append(PageBreak())
+    ])
     
-    # Statistical Analysis
-    story.append(Paragraph("4. Statistical Analysis", styles['ChapterTitle']))
-    story.append(Paragraph("4.1 Descriptive Statistics", styles['SectionTitle']))
-    # Add descriptive statistics table
-    story.append(Paragraph("4.2 Distribution Analysis", styles['SectionTitle']))
+    t = Table(data_info, colWidths=[4*inch, 2*inch])
+    t.setStyle(table_style)
+    story.append(t)
+    
+    # Add visualizations
+    story.append(Paragraph("4. Visualizations", styles['ChapterTitle']))
     for plot_name, plot_buf in plots.items():
+        story.append(Paragraph(f"4.{plot_name.capitalize()}", styles['SectionTitle']))
         plot_buf.seek(0)
         img = Image(plot_buf, width=6*inch, height=4*inch)
         story.append(img)
         story.append(Spacer(1, 20))
-    story.append(PageBreak())
     
-    # Findings and Insights
-    story.append(Paragraph("5. Findings and Insights", styles['ChapterTitle']))
-    story.append(Paragraph("5.1 Key Patterns", styles['SectionTitle']))
-    story.append(Paragraph("5.2 Anomalies", styles['SectionTitle']))
-    story.append(Paragraph("5.3 Trends", styles['SectionTitle']))
-    story.append(PageBreak())
-    
-    # Recommendations
-    story.append(Paragraph("6. Recommendations", styles['ChapterTitle']))
-    # Add recommendations based on analysis
-    story.append(PageBreak())
-    
-    # Limitations and Assumptions
-    story.append(Paragraph("7. Limitations and Assumptions", styles['ChapterTitle']))
-    story.append(PageBreak())
-    
-    # Appendix
-    story.append(Paragraph("Appendix", styles['ChapterTitle']))
-    story.append(Paragraph("A.1 Data Dictionary", styles['SectionTitle']))
-    story.append(Paragraph("A.2 Detailed Statistical Results", styles['SectionTitle']))
-    story.append(Paragraph("A.3 Methodology Details", styles['SectionTitle']))
+    # Statistical Analysis
+    if isinstance(analysis_results.get('basic_stats'), pd.Series):
+        story.append(Paragraph("5. Statistical Analysis", styles['ChapterTitle']))
+        story.append(Paragraph("5.1 Basic Statistics", styles['SectionTitle']))
+        
+        # Convert basic stats to table
+        stats_data = [["Metric", "Value"]]
+        for stat, value in analysis_results['basic_stats'].items():
+            stats_data.append([stat, f"{value:.2f}" if isinstance(value, float) else str(value)])
+        
+        t = Table(stats_data, colWidths=[4*inch, 2*inch])
+        t.setStyle(table_style)
+        story.append(t)
     
     # Build PDF
     doc.build(story)
