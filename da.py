@@ -249,18 +249,27 @@ def create_pdf_report(df, target_column, report_info, plots, analysis_results):
     buffer.seek(0)
     return buffer
 
+# Set page config
+st.set_page_config(page_title="Data Analysis Report Generator", layout="wide")
+
+# Initialize session state
+if 'df' not in st.session_state:
+    st.session_state.df = None
+
 # App title
-st.title("📊 Data Analysis Report Generator")
+st.title("📊 Comprehensive Data Analysis Report Generator")
 
 # Sidebar for inputs
 with st.sidebar:
     st.header("Report Information")
     report_info = {
-        'report_title': st.text_input("Report Title", "Data Analysis Report"),
+        'report_title': st.text_input("Report Title", "Comprehensive Data Analysis Report"),
         'prepared_by': st.text_input("Prepared By", "Data Analyst"),
         'prepared_for': st.text_input("Prepared For", "Organization"),
         'version': st.text_input("Version", "1.0"),
-        'purpose': st.text_area("Purpose of Analysis", "This analysis aims to...")
+        'purpose': st.text_area("Purpose of Analysis", 
+            "This analysis aims to provide comprehensive insights into the dataset, "
+            "identifying key patterns, trends, and actionable recommendations.")
     }
 
 # File upload
@@ -280,22 +289,35 @@ if uploaded_file is not None:
         st.header("Data Preview")
         st.dataframe(df.head())
         
+        # Column info
+        st.header("Dataset Information")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Number of Rows", df.shape[0])
+        with col2:
+            st.metric("Number of Columns", df.shape[1])
+        with col3:
+            st.metric("Missing Values", df.isnull().sum().sum())
+        
         # Select target column
         target_column = st.selectbox("Select Target Feature", df.columns.tolist())
         
         if st.button("Generate Report"):
-            with st.spinner("Generating report..."):
+            with st.spinner("Generating comprehensive report..."):
                 # Generate visualizations
-                plots = generate_visualizations(df, target_column)
+                plots = generate_advanced_visualizations(df, target_column)
+                
+                # Perform statistical analysis
+                analysis_results = perform_statistical_analysis(df, target_column)
                 
                 # Create PDF
-                pdf_buffer = create_pdf_report(df, target_column, report_info, plots)
+                pdf_buffer = create_pdf_report(df, target_column, report_info, plots, analysis_results)
                 
                 # Offer download
                 st.download_button(
-                    label="📥 Download PDF Report",
+                    label="📥 Download Comprehensive PDF Report",
                     data=pdf_buffer,
-                    file_name=f"analysis_report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    file_name=f"comprehensive_analysis_report_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf"
                 )
                 
@@ -304,21 +326,46 @@ if uploaded_file is not None:
                 
                 # Distribution plot using Plotly
                 if df[target_column].dtype in ['int64', 'float64']:
-                    fig = px.histogram(df, x=target_column, title=f'Distribution of {target_column}')
-                else:
-                    value_counts = df[target_column].value_counts()
-                    fig = px.bar(x=value_counts.index, y=value_counts.values, 
-                               title=f'Distribution of {target_column}')
-                st.plotly_chart(fig)
+                    fig = px.histogram(df, x=target_column, 
+                                     title=f'Distribution of {target_column}',
+                                     marginal="box")  # Added box plot on the margin
+                    st.plotly_chart(fig)
+                    
+                    # Additional statistics
+                    st.header("Statistical Summary")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Mean", f"{df[target_column].mean():.2f}")
+                    with col2:
+                        st.metric("Median", f"{df[target_column].median():.2f}")
+                    with col3:
+                        st.metric("Std Dev", f"{df[target_column].std():.2f}")
+                    with col4:
+                        st.metric("Skewness", f"{stats.skew(df[target_column].dropna()):.2f}")
                 
                 # Correlation heatmap using Plotly
                 numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
                 if len(numeric_cols) > 1:
+                    st.header("Correlation Analysis")
                     corr_matrix = df[numeric_cols].corr()
-                    fig = px.imshow(corr_matrix, 
+                    fig = px.imshow(corr_matrix,
                                   title='Correlation Heatmap',
                                   color_continuous_scale='RdBu')
                     st.plotly_chart(fig)
+                    
+                    # Highlight strong correlations
+                    st.subheader("Strong Correlations")
+                    strong_corr = (corr_matrix.abs() > 0.5) & (corr_matrix != 1.000)
+                    if strong_corr.any().any():
+                        for idx, row in enumerate(strong_corr.index):
+                            for col in strong_corr.columns[idx+1:]:
+                                if strong_corr.loc[row, col]:
+                                    st.write(f"• {row} vs {col}: {corr_matrix.loc[row, col]:.3f}")
                 
     except Exception as e:
         st.error(f"Error: {str(e)}")
+        st.error("Please check your input file and try again.")
+
+# Add footer
+st.markdown("---")
+st.markdown("Made with ❤️ by Your Data Team")
